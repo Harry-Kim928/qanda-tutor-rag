@@ -97,9 +97,9 @@ def main():
         "Content-Type": "application/json",
     }
 
-    # 기존 행 비우기 (재실행 멱등성)
+    # 기존 규정 행만 비우기 (FAQ 등 다른 source는 보존, 재실행 멱등성)
     del_req = urllib.request.Request(
-        f"{supabase_url}/rest/v1/regulation_chunks?id=gte.0",
+        f"{supabase_url}/rest/v1/regulation_chunks?chapter=neq.FAQ",
         headers={**H, "Prefer": "return=minimal"},
         method="DELETE",
     )

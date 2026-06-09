@@ -9,9 +9,9 @@ interface Message {
 }
 
 interface Source {
-  type?: 'regulation' | 'case'
+  type?: 'regulation' | 'faq' | 'case'
   similarity: number
-  // 규정 출처
+  // 규정·FAQ 출처
   label?: string
   // 사례 출처
   chatId?: string
@@ -117,7 +117,7 @@ export default function ChatPage() {
           </div>
           <div>
             <h1 className="font-semibold text-gray-900 text-sm">QANDA 튜터 지원 AI</h1>
-            <p className="text-xs text-gray-500">튜터 규정집 + 상담 이력 기반</p>
+            <p className="text-xs text-gray-500">규정집·FAQ + 상담 이력 기반</p>
           </div>
         </div>
       </header>
@@ -179,6 +179,15 @@ export default function ChatPage() {
                         <span className="font-medium">📋 규정</span>
                         {src.label && <span>{src.label}</span>}
                         <span className="text-blue-400">{src.similarity}%</span>
+                      </div>
+                    ) : src.type === 'faq' ? (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs px-2.5 py-1 rounded-full"
+                      >
+                        <span className="font-medium">❓ FAQ</span>
+                        {src.label && <span>{src.label}</span>}
+                        <span className="text-emerald-400">{src.similarity}%</span>
                       </div>
                     ) : (
                       <div

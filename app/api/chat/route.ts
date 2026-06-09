@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   // 1) 임베딩 1회 → 규정·사례 병렬 검색
   const { embedding, tokens: embTokens } = await embedQuery(message)
   const [regulations, contexts] = await Promise.all([
-    retrieveRegulations(embedding, 4),
+    retrieveRegulations(embedding, 6),
     retrieveContext(embedding, 5),
   ])
   const regulationText = formatRegulations(regulations)
@@ -79,20 +79,21 @@ export async function POST(req: NextRequest) {
     }, [])
 
   const systemPrompt = `당신은 QANDA 튜터를 지원하는 AI 어시스턴트입니다.
-답변은 아래 두 출처에 근거합니다. **공식 규정이 항상 우선**이며, 상담 사례는 톤과 구체적 예시를 위한 보조 자료입니다.
+답변은 공식 규정·FAQ(정답의 근거, 최우선)와 과거 상담 사례(톤·예시용 보조)에 근거합니다.
 
-[공식 규정 — 정답의 근거 (최우선)]
+[공식 규정·FAQ — 정답의 근거 (최우선)]
 ${regulationText}
 
 [참고 상담 사례 — 톤·예시용 (보조)]
 ${context}
 
 답변 지침:
-1. 규정에 명시된 내용은 반드시 공식 규정을 근거로 답하고, 해당 장·조항을 함께 인용하세요. (예: "페널티 규정 제9조에 따르면…", "「9.3 학생 노쇼 규정」상…")
-2. 규정과 사례가 충돌하면 항상 공식 규정을 따르세요. 사례는 규정을 보완하는 예시로만 활용합니다.
-3. 규정에 근거가 없는 내용은 추측하지 말고, "공식 규정에서 확인되지 않는 내용입니다. 운영팀 확인이 필요합니다."라고 답하세요.
+1. 규정·FAQ에 명시된 내용은 반드시 그것을 근거로 답하고, 해당 장·조항이나 FAQ 항목을 함께 인용하세요. (예: "페널티 규정 제9조에 따르면…", "「9.3 학생 노쇼 규정」상…", "「FAQ: 수업료는 언제 정산되나요?」")
+2. 규정·FAQ와 사례가 충돌하면 항상 공식 규정·FAQ를 따르세요. 사례는 보완하는 예시로만 활용합니다.
+3. 규정·FAQ에 근거가 없는 내용은 추측하지 말고, "공식 규정·FAQ에서 확인되지 않는 내용입니다. 운영팀 확인이 필요합니다."라고 답하세요.
 4. 사례를 인용할 때는 "과거 유사 사례로는…" 형식으로 참고임을 명확히 하세요.
-5. 답변은 간결하고 실무에 바로 적용 가능하게 작성하세요.`
+5. 답변은 간결하고 실무에 바로 적용 가능하게 작성하세요.
+6. QANDA 튜터 업무(규정·수업·매칭·정산·앱·온보딩 등)와 무관한 일반 질문(잡담, 일반상식, 메뉴 추천 등 개인적 질문)에는 내용을 답하지 말고, "죄송하지만 QANDA 튜터 업무와 관련된 질문에만 답변드릴 수 있어요."라고만 답하세요.`
 
   // 2) GPT-4o 스트리밍
   const stream = openai.chat.completions.stream({
@@ -109,7 +110,7 @@ ${context}
   // 3) 스트리밍 응답 — 규정 출처를 먼저, 사례 출처를 뒤에
   const sourcesMeta = JSON.stringify([
     ...regulations.map((r) => ({
-      type:       'regulation' as const,
+      type:       (r.chapter === 'FAQ' ? 'faq' : 'regulation') as 'faq' | 'regulation',
       label:      r.section || r.chapter || '규정',
       similarity: Math.round(r.similarity * 100),
     })),
