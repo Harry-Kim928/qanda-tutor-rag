@@ -11,6 +11,13 @@ export interface MatchedContext {
   chatMeta: { state: string; tags: string[]; openedAt: string; closedAt: string }
 }
 
+export interface RegulationContext {
+  chapter: string
+  section: string
+  content: string
+  similarity: number
+}
+
 // 1) 질문 임베딩 생성 (토큰 수 함께 반환)
 export async function embedQuery(text: string): Promise<{ embedding: number[]; tokens: number }> {
   const res = await openai.embeddings.create({
@@ -18,6 +25,25 @@ export async function embedQuery(text: string): Promise<{ embedding: number[]; t
     input: text.slice(0, 6000),
   })
   return { embedding: res.data[0].embedding, tokens: res.usage.total_tokens }
+}
+
+// 1-b) 규정집 청크 검색 (정답 근거 — 사례보다 우선)
+export async function retrieveRegulations(
+  queryEmbedding: number[],
+  matchCount = 4
+): Promise<RegulationContext[]> {
+  const { data, error } = await supabaseAdmin.rpc('match_regulations', {
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    match_threshold: 0.3,
+  })
+  if (error || !data?.length) return []
+  return (data as any[]).map((r) => ({
+    chapter: r.chapter ?? '',
+    section: r.section ?? '',
+    content: r.content ?? '',
+    similarity: (r.similarity as number) ?? 0,
+  }))
 }
 
 // 2) 유사 메시지 검색 후 전체 대화 컨텍스트 반환
@@ -71,6 +97,17 @@ export async function retrieveContext(
     })
   }
   return contexts
+}
+
+// 3-b) 규정 컨텍스트 문자열 포맷 (조항 제목 + 본문)
+export function formatRegulations(regs: RegulationContext[]): string {
+  if (!regs.length) return '관련 규정 없음'
+  return regs
+    .map((r) => {
+      // content에는 이미 [제목 breadcrumb]\n본문 형태가 들어 있음
+      return r.content?.trim() || `${r.chapter} ${r.section}`.trim()
+    })
+    .join('\n\n---\n\n')
 }
 
 // 3) Claude 프롬프트용 컨텍스트 문자열 포맷

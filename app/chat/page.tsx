@@ -9,10 +9,14 @@ interface Message {
 }
 
 interface Source {
-  chatId: string
+  type?: 'regulation' | 'case'
   similarity: number
-  tags: string[]
-  date: string
+  // 규정 출처
+  label?: string
+  // 사례 출처
+  chatId?: string
+  tags?: string[]
+  date?: string
 }
 
 export default function ChatPage() {
@@ -113,7 +117,7 @@ export default function ChatPage() {
           </div>
           <div>
             <h1 className="font-semibold text-gray-900 text-sm">QANDA 튜터 지원 AI</h1>
-            <p className="text-xs text-gray-500">카카오톡 상담 이력 기반</p>
+            <p className="text-xs text-gray-500">튜터 규정집 + 상담 이력 기반</p>
           </div>
         </div>
       </header>
@@ -123,10 +127,10 @@ export default function ChatPage() {
         {messages.length === 0 && (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">💬</div>
-            <p className="text-gray-600 font-medium">카카오톡 상담 이력을 기반으로 답변합니다</p>
-            <p className="text-gray-400 text-sm mt-1">환불 처리, 수업 변경, 민원 대응 등을 물어보세요</p>
+            <p className="text-gray-600 font-medium">튜터 규정집을 근거로, 상담 이력을 참고해 답변합니다</p>
+            <p className="text-gray-400 text-sm mt-1">노쇼·지각·페널티·수업 운영 규정을 물어보세요</p>
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
-              {['환불 요청 처리 방법', '튜터 변경 요청', '수업료 문의 대응', '불만 고객 응대'].map((q) => (
+              {['학생이 노쇼했을 때 처리 방법', '수업 지각 시 제재 기준', '학습 리포트 작성 의무', '교재 등록하는 방법'].map((q) => (
                 <button
                   key={q}
                   onClick={() => { setInput(q); }}
@@ -163,23 +167,34 @@ export default function ChatPage() {
                 )}
               </div>
 
-              {/* 출처 카드 */}
+              {/* 출처 카드 — 규정(파랑) 우선, 사례(회색) 보조 */}
               {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {msg.sources.map((src) => (
-                    <div
-                      key={src.chatId}
-                      className="flex items-center gap-1.5 bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-full"
-                    >
-                      <span className="text-blue-500 font-medium">{src.similarity}% 유사</span>
-                      {src.date && <span>{src.date}</span>}
-                      {src.tags?.slice(0, 1).map((t) => (
-                        <span key={t} className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-xs">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  ))}
+                  {msg.sources.map((src, idx) =>
+                    src.type === 'regulation' ? (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs px-2.5 py-1 rounded-full"
+                      >
+                        <span className="font-medium">📋 규정</span>
+                        {src.label && <span>{src.label}</span>}
+                        <span className="text-blue-400">{src.similarity}%</span>
+                      </div>
+                    ) : (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-1.5 bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-full"
+                      >
+                        <span className="text-blue-500 font-medium">{src.similarity}% 유사</span>
+                        {src.date && <span>{src.date}</span>}
+                        {src.tags?.slice(0, 1).map((t) => (
+                          <span key={t} className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-xs">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </div>

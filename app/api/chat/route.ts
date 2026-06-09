@@ -1,6 +1,12 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { embedQuery, retrieveContext, formatContext } from '@/lib/rag'
+import {
+  embedQuery,
+  retrieveContext,
+  formatContext,
+  retrieveRegulations,
+  formatRegulations,
+} from '@/lib/rag'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { cleanEnv } from '@/lib/env'
 
@@ -47,10 +53,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 1) 임베딩 + 컨텍스트 검색
+  // 1) 임베딩 1회 → 규정·사례 병렬 검색
   const { embedding, tokens: embTokens } = await embedQuery(message)
-  const contexts = await retrieveContext(embedding, 5)
-  const context  = formatContext(contexts)
+  const [regulations, contexts] = await Promise.all([
+    retrieveRegulations(embedding, 4),
+    retrieveContext(embedding, 5),
+  ])
+  const regulationText = formatRegulations(regulations)
+  const context        = formatContext(contexts)
 
   // 임베딩 사용량 기록 (비동기)
   trackUsage('openai', embTokens, embTokens * PRICE.embed)
@@ -69,16 +79,20 @@ export async function POST(req: NextRequest) {
     }, [])
 
   const systemPrompt = `당신은 QANDA 튜터를 지원하는 AI 어시스턴트입니다.
-카카오톡 채널을 통해 접수된 실제 고객 상담 이력을 기반으로 답변합니다.
+답변은 아래 두 출처에 근거합니다. **공식 규정이 항상 우선**이며, 상담 사례는 톤과 구체적 예시를 위한 보조 자료입니다.
 
-[관련 상담 사례]
+[공식 규정 — 정답의 근거 (최우선)]
+${regulationText}
+
+[참고 상담 사례 — 톤·예시용 (보조)]
 ${context}
 
 답변 지침:
-- 위 사례를 참고하여 구체적이고 실용적으로 답변하세요.
-- 비슷한 과거 사례가 있다면 "과거에 유사한 사례로는..." 형식으로 언급하세요.
-- 확실하지 않은 내용은 솔직히 말씀해주세요.
-- 답변은 간결하고 실무에 바로 적용 가능하게 작성하세요.`
+1. 규정에 명시된 내용은 반드시 공식 규정을 근거로 답하고, 해당 장·조항을 함께 인용하세요. (예: "페널티 규정 제9조에 따르면…", "「9.3 학생 노쇼 규정」상…")
+2. 규정과 사례가 충돌하면 항상 공식 규정을 따르세요. 사례는 규정을 보완하는 예시로만 활용합니다.
+3. 규정에 근거가 없는 내용은 추측하지 말고, "공식 규정에서 확인되지 않는 내용입니다. 운영팀 확인이 필요합니다."라고 답하세요.
+4. 사례를 인용할 때는 "과거 유사 사례로는…" 형식으로 참고임을 명확히 하세요.
+5. 답변은 간결하고 실무에 바로 적용 가능하게 작성하세요.`
 
   // 2) GPT-4o 스트리밍
   const stream = openai.chat.completions.stream({
@@ -92,23 +106,29 @@ ${context}
     ],
   })
 
-  // 3) 스트리밍 응답
-  const contextMeta = JSON.stringify(
-    contexts.map((c) => ({
+  // 3) 스트리밍 응답 — 규정 출처를 먼저, 사례 출처를 뒤에
+  const sourcesMeta = JSON.stringify([
+    ...regulations.map((r) => ({
+      type:       'regulation' as const,
+      label:      r.section || r.chapter || '규정',
+      similarity: Math.round(r.similarity * 100),
+    })),
+    ...contexts.map((c) => ({
+      type:       'case' as const,
       chatId:     c.chatId,
       similarity: Math.round(c.similarity * 100),
       tags:       c.chatMeta.tags,
       date:       c.chatMeta.openedAt
         ? new Date(c.chatMeta.openedAt).toLocaleDateString('ko-KR')
         : '',
-    }))
-  )
+    })),
+  ])
 
   const encoder = new TextEncoder()
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        controller.enqueue(encoder.encode(`__SOURCES__${contextMeta}\n`))
+        controller.enqueue(encoder.encode(`__SOURCES__${sourcesMeta}\n`))
 
         let inputTokens  = 0
         let outputTokens = 0
