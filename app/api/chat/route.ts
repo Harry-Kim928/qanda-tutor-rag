@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { embedQuery, retrieveContext, formatContext } from '@/lib/rag'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { cleanEnv } from '@/lib/env'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: cleanEnv(process.env.OPENAI_API_KEY) })
 
 // 비용 한도 (USD) — 임베딩 + 채팅 합산
 const LIMITS = { openai: 5.00 }

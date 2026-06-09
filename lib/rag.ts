@@ -1,7 +1,8 @@
 import OpenAI from 'openai'
 import { supabaseAdmin } from './supabase-admin'
+import { cleanEnv } from './env'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: cleanEnv(process.env.OPENAI_API_KEY) })
 
 export interface MatchedContext {
   chatId: string
