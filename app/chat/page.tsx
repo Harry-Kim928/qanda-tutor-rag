@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -110,7 +111,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="bg-white border-b px-4 py-3 flex items-center shadow-sm">
+      <header className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
             <span className="text-white font-bold text-sm">Q</span>
@@ -120,6 +121,9 @@ export default function ChatPage() {
             <p className="text-xs text-gray-500">규정집·FAQ + 상담 이력 기반</p>
           </div>
         </div>
+        <Link href="/inbox" className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors">
+          📥 문의함
+        </Link>
       </header>
 
       {/* 메시지 목록 */}
